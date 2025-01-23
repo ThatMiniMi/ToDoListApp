@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ToDoListApp.Data;
 using ToDoListApp.Models;
 
 namespace ToDoListApp.Controllers
@@ -7,49 +9,63 @@ namespace ToDoListApp.Controllers
     [ApiController]
     public class TagController : ControllerBase
     {
-        private static List<ToDoTag> Tags = new List<ToDoTag>();
-        [HttpGet]
-        public IActionResult GetAllTags()
+        private readonly ToDoContext _context;
+
+        public TagController(ToDoContext context)
         {
-            return Ok(Tags);
+            _context = context;
         }
-        [HttpGet("{id}")]
-        public IActionResult GetTag(int id)
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllTags()
         {
-            var tag = Tags.FirstOrDefault(t => t.Id == id);
+            var tags = await _context.Tags.ToListAsync();
+            return Ok(tags);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetTag(int id)
+        {
+            var tag = await _context.Tags.FindAsync(id);
             if (tag == null)
                 return NotFound();
+
             return Ok(tag);
         }
+
         [HttpPost]
-        public IActionResult CreateTask([FromBody] ToDoTag tag)
+        public async Task<IActionResult> CreateTag([FromBody] ToDoTag tag)
         {
             if (tag == null)
                 return BadRequest();
 
-            tag.Id = Tags.Count + 1;
-            Tags.Add(tag);
+            _context.Tags.Add(tag);
+            await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetTag), new { id = tag.Id }, tag);
         }
+
         [HttpPut("{id}")]
-        public IActionResult UpdateTag(int id, [FromBody] ToDoTag updatedTag)
+        public async Task<IActionResult> UpdateTag(int id, [FromBody] ToDoTag updatedTag)
         {
-            var tag = Tags.FirstOrDefault(t => t.Id == id);
+            var tag = await _context.Tags.FindAsync(id);
             if (tag == null)
                 return NotFound();
 
             tag.Name = updatedTag.Name;
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteTag(int id)
+        public async Task<IActionResult> DeleteTag(int id)
         {
-            var tag = Tags.FirstOrDefault(t => t.Id == id);
+            var tag = await _context.Tags.FindAsync(id);
             if (tag == null)
                 return NotFound();
 
-            Tags.Remove(tag);
+            _context.Tags.Remove(tag);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ToDoListApp.Data;
 using ToDoListApp.Models;
 
 namespace ToDoListApp.Controllers
@@ -7,44 +9,70 @@ namespace ToDoListApp.Controllers
     [ApiController]
     public class ProjectController : ControllerBase
     {
-        private static List<ToDoProject> Projects = new List<ToDoProject>();
-        [HttpGet]
-        public IActionResult GetAllProjects()
+        private readonly ToDoContext _context;
+
+        public ProjectController(ToDoContext context)
         {
-            return Ok(Projects);
+            _context = context;
         }
-        [HttpGet("{id}")]
-        public IActionResult GetProject(int id)
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllProjects()
         {
-            var project = Projects.FirstOrDefault(p => p.Id == id);
+            var projects = await _context.Projects
+                .Include(p => p.Tasks)
+                .Include(p => p.Tags)
+                .ToListAsync();
+            return Ok(projects);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetProject(int id)
+        {
+            var project = await _context.Projects
+                .Include(p => p.Tasks)
+                .Include(p => p.Tags)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (project == null)
                 return NotFound();
+
             return Ok(project);
         }
+
         [HttpPost]
-        public IActionResult CreateProject([FromBody] ToDoProject project)
+        public async Task<IActionResult> CreateProject([FromBody] ToDoProject project)
         {
-            project.Id = Projects.Count + 1;
-            Projects.Add(project);
+            _context.Projects.Add(project);
+            await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
         }
+
         [HttpPut("{id}")]
-        public IActionResult UpdateProject(int id, [FromBody] ToDoProject updatedProject)
+        public async Task<IActionResult> UpdateProject(int id, [FromBody] ToDoProject updatedProject)
         {
-            var project = Projects.FirstOrDefault(p => p.Id == id);
+            var project = await _context.Projects.FindAsync(id);
             if (project == null)
                 return NotFound();
+
             project.Name = updatedProject.Name;
+            project.IsPaused = updatedProject.IsPaused;
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
+
         [HttpDelete("{id}")]
-        public IActionResult DeleteProject(int id)
+        public async Task<IActionResult> DeleteProject(int id)
         {
-            var project = Projects.FirstOrDefault(p => p.Id == id);
+            var project = await _context.Projects.FindAsync(id);
             if (project == null)
                 return NotFound();
-            Projects.Remove(project);
+
+            _context.Projects.Remove(project);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }
 }
+
